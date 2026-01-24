@@ -89,6 +89,22 @@ func NewClient(baseURL string, opts ...Option) *Client {
 	return c
 }
 
+func (c *Client) GetBaseURL() string {
+	return c.baseURL
+}
+
+func (c *Client) GetHTTPClient() *http.Client {
+	return c.httpClient
+}
+
+func (c *Client) GetToken() string {
+	return c.token
+}
+
+func (c *Client) HasSession() bool {
+	return c.session != nil
+}
+
 func (c *Client) Version(ctx context.Context) (*Version, error) {
 	return c.version, c.Get(ctx, "/version", &c.version)
 }
@@ -122,7 +138,7 @@ func (c *Client) Req(ctx context.Context, method, path string, data []byte, v in
 		req.Header.Add("Content-Type", "application/json")
 	}
 
-	c.authHeaders(&req.Header)
+	c.setAuthHeaders(req.Header)
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
@@ -269,7 +285,7 @@ func (c *Client) Upload(path string, fields map[string]string, file *os.File, v 
 
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	req.ContentLength = int64(b.Len()) + fi.Size()
-	c.authHeaders(&req.Header)
+	c.setAuthHeaders(req.Header)
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
@@ -280,7 +296,7 @@ func (c *Client) Upload(path string, fields map[string]string, file *os.File, v 
 	return c.handleResponse(res, &v)
 }
 
-func (c *Client) authHeaders(header *http.Header) {
+func (c *Client) setAuthHeaders(header http.Header) {
 	header.Add("User-Agent", c.userAgent)
 	header.Add("Accept", "application/json")
 	if c.token != "" {
@@ -321,7 +337,7 @@ func (c *Client) handleResponse(res *http.Response, v interface{}) error {
 			return fmt.Errorf("bad request: %s - %s", res.Status, body)
 		}
 
-		return fmt.Errorf("bad request: %s - %s", res.Status, string(body))
+		return fmt.Errorf("bad request: %s - %s", res.Status, body)
 	}
 
 	// if nil passed don't bother to do any unmarshalling
@@ -359,26 +375,26 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 	}
 
 	dialerHeaders := http.Header{}
-	c.authHeaders(&dialerHeaders)
+	c.setAuthHeaders(dialerHeaders)
 
-	conn, _, err := dialer.Dial(path, dialerHeaders)
-
+	conn, resp, err := dialer.Dial(path, dialerHeaders)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// start the session by sending user@realm:ticket
 	if err := conn.WriteMessage(websocket.BinaryMessage, []byte(term.User+":"+term.Ticket+"\n")); err != nil {
+		err = fmt.Errorf("failed to send user@realm:ticket: %w\n%+v", err, resp)
 		return nil, nil, nil, nil, err
 	}
 
 	// it sends back the same thing you just sent so catch it drop it
 	_, msg, err := conn.ReadMessage()
 	if err != nil || string(msg) != "OK" {
-		if err := conn.Close(); err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("error closing websocket: %s", err.Error())
+		if closeErr := conn.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
 		}
-		return nil, nil, nil, nil, fmt.Errorf("unable to establish websocket: %s", err.Error())
+		return nil, nil, nil, nil, fmt.Errorf("unable to establish websocket: msg=%q, err=%w", msg, err)
 	}
 
 	type size struct {
@@ -392,8 +408,8 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 	}
 
 	c.log.Debugf("sending terminal size: %d x %d", tsize.height, tsize.width)
-	if err := conn.WriteMessage(websocket.BinaryMessage, []byte(fmt.Sprintf("1:%d:%d:", tsize.height, tsize.width))); err != nil {
-		return nil, nil, nil, nil, err
+	if err := conn.WriteMessage(websocket.BinaryMessage, fmt.Appendf(nil, "1:%d:%d:", tsize.height, tsize.width)); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to send terminal size: %w", err)
 	}
 
 	send := make(chan []byte)
@@ -471,12 +487,12 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 				}
 			case resized := <-resize:
 				c.log.Debugf("resizing terminal window: %d x %d", resized.height, resized.width)
-				if err := conn.WriteMessage(websocket.BinaryMessage, []byte(fmt.Sprintf("1:%d:%d:", resized.height, resized.width))); err != nil {
+				if err := conn.WriteMessage(websocket.BinaryMessage, fmt.Appendf(nil, "1:%d:%d:", resized.height, resized.width)); err != nil {
 					errs <- err
 				}
 			case msg := <-send:
 				c.log.Debugf("sending: %s", msg)
-				send := append([]byte(fmt.Sprintf("0:%d:", len(msg))), msg...)
+				send := append(fmt.Appendf(nil, "0:%d:", len(msg)), msg...)
 				if err := conn.WriteMessage(websocket.BinaryMessage, send); err != nil {
 					errs <- err
 				}
@@ -505,7 +521,7 @@ func (c *Client) VNCWebSocket(path string, vnc *VNC) (chan []byte, chan []byte, 
 	}
 
 	dialerHeaders := http.Header{}
-	c.authHeaders(&dialerHeaders)
+	c.setAuthHeaders(dialerHeaders)
 
 	conn, _, err := dialer.Dial(path, dialerHeaders)
 

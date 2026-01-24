@@ -64,7 +64,7 @@ func TestClient_authHeaders(t *testing.T) {
 	}
 
 	for _, test := range cases {
-		test.client.authHeaders(&test.input)
+		test.client.setAuthHeaders(test.input)
 		assert.Equal(t, test.expect, test.input)
 	}
 }
