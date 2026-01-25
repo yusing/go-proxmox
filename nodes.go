@@ -26,7 +26,7 @@ func (c *Client) Node(ctx context.Context, name string) (*Node, error) {
 	return node, nil
 }
 
-func (n *Node) New(c *Client, name string) *Node {
+func NewNode(c *Client, name string) *Node {
 	node := &Node{
 		Name:   name,
 		client: c,
