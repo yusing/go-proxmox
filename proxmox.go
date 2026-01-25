@@ -492,7 +492,7 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 				}
 			case msg := <-send:
 				c.log.Debugf("sending: %s", msg)
-				send := append(fmt.Appendf(nil, "0:%d:", len(msg)), msg...)
+				send := fmt.Appendf(nil, "0:%d:%s", len(msg), msg)
 				if err := conn.WriteMessage(websocket.BinaryMessage, send); err != nil {
 					errs <- err
 				}
