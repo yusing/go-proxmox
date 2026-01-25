@@ -40,6 +40,28 @@ func (c *Client) CreateSession(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) RefreshSession(ctx context.Context) error {
+	_, err := c.Version(ctx)
+	if err == nil {
+		// token is still valid
+		return nil
+	}
+
+	c.sessionMux.Lock()
+	defer c.sessionMux.Unlock()
+
+	if c.session != nil {
+		c.session = nil
+	}
+
+	// token is invalid, create a new session
+	if _, err := c.Ticket(ctx, c.credentials); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Client) Ticket(ctx context.Context, credentials *Credentials) (*Session, error) {
 	return c.session, c.Post(ctx, "/access/ticket", credentials, &c.session)
 }
