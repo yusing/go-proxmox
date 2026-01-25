@@ -467,7 +467,11 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 					}
 					errs <- err
 				}
-				recv <- msg
+				select {
+				case <-done:
+					return
+				case recv <- msg:
+				}
 			}
 		}
 	}()
