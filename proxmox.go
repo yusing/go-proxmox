@@ -167,7 +167,6 @@ func (c *Client) Req(ctx context.Context, method, path string, data []byte, v in
 	}
 
 	return c.handleResponse(res, v)
-
 }
 
 func (c *Client) Get(ctx context.Context, p string, v interface{}) error {
@@ -207,7 +206,6 @@ func dataParserForURL(d interface{}) (string, error) {
 	}
 
 	return values.Encode(), nil
-
 }
 
 func (c *Client) Post(ctx context.Context, p string, d interface{}, v interface{}) error {
@@ -528,7 +526,6 @@ func (c *Client) VNCWebSocket(path string, vnc *VNC) (chan []byte, chan []byte, 
 	c.setAuthHeaders(dialerHeaders)
 
 	conn, _, err := dialer.Dial(path, dialerHeaders)
-
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

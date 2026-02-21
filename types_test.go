@@ -52,7 +52,7 @@ func TestStringOrUint64(t *testing.T) {
 			StringOrUint64(1),
 			nil,
 		}, {
-			01,
+			0o1,
 			StringOrUint64(1),
 			nil,
 		}, {
@@ -141,7 +141,7 @@ func TestStringOrFloat64(t *testing.T) {
 			StringOrFloat64(1),
 			nil,
 		}, {
-			01,
+			0o1,
 			StringOrFloat64(1),
 			nil,
 		}, {
@@ -186,6 +186,7 @@ func TestStringOrFloat64(t *testing.T) {
 		assert.Equal(t, test.expected, unmarshall.Value)
 	}
 }
+
 func TestStringOrInt(t *testing.T) {
 	cases := []struct {
 		input    interface{}
@@ -229,7 +230,7 @@ func TestStringOrInt(t *testing.T) {
 			StringOrInt(1),
 			nil,
 		}, {
-			01,
+			0o1,
 			StringOrInt(1),
 			nil,
 		}, {

@@ -13,9 +13,7 @@ import (
 	"github.com/jinzhu/copier"
 )
 
-var (
-	isFloat = regexp.MustCompile(`^[0-9.]*$`)
-)
+var isFloat = regexp.MustCompile(`^[0-9.]*$`)
 
 type Credentials struct {
 	Username string `json:"username"`
@@ -26,8 +24,10 @@ type Credentials struct {
 	Realm    string `json:"realm,omitempty"`
 }
 
-type Permission map[string]IntOrBool
-type Permissions map[string]Permission
+type (
+	Permission  map[string]IntOrBool
+	Permissions map[string]Permission
+)
 
 type PermissionsOptions struct {
 	Path   string // path to limit the return e.g. / or /nodes
@@ -192,10 +192,12 @@ type ClusterCephStatus struct {
 	Servicemap     CephServiceMap `json:"servicemap"`
 }
 
-type CephHealthCheckName string
-type CephHealthCheckDetail struct {
-	Message string `json:"message"`
-}
+type (
+	CephHealthCheckName   string
+	CephHealthCheckDetail struct {
+		Message string `json:"message"`
+	}
+)
 type CephHealthCheckSummary struct {
 	Count   int    `json:"count"`
 	Message string `json:"message"`
@@ -389,32 +391,34 @@ type CephMgrAlwaysOnModules struct {
 	Squid   []string `json:"squid"`
 }
 
-type NodeStatuses []*NodeStatus
-type NodeStatus struct {
-	// shared
-	Status string `json:",omitempty"`
-	Level  string `json:",omitempty"`
-	ID     string `json:",omitempty"` // format "node/<name>"
+type (
+	NodeStatuses []*NodeStatus
+	NodeStatus   struct {
+		// shared
+		Status string `json:",omitempty"`
+		Level  string `json:",omitempty"`
+		ID     string `json:",omitempty"` // format "node/<name>"
 
-	// from /nodes endpoint
-	Node           string  `json:",omitempty"`
-	Type           string  `json:",omitempty"`
-	MaxCPU         int     `json:",omitempty"`
-	MaxMem         uint64  `json:",omitempty"`
-	Disk           uint64  `json:",omitempty"`
-	SSLFingerprint string  `json:"ssl_fingerprint,omitempty"`
-	MaxDisk        uint64  `json:",omitempty"`
-	Mem            uint64  `json:",omitempty"`
-	CPU            float64 `json:",omitempty"`
-	Uptime         uint64  `json:",omitempty"`
+		// from /nodes endpoint
+		Node           string  `json:",omitempty"`
+		Type           string  `json:",omitempty"`
+		MaxCPU         int     `json:",omitempty"`
+		MaxMem         uint64  `json:",omitempty"`
+		Disk           uint64  `json:",omitempty"`
+		SSLFingerprint string  `json:"ssl_fingerprint,omitempty"`
+		MaxDisk        uint64  `json:",omitempty"`
+		Mem            uint64  `json:",omitempty"`
+		CPU            float64 `json:",omitempty"`
+		Uptime         uint64  `json:",omitempty"`
 
-	// from /cluster endpoint
-	NodeID int    `json:",omitempty"` // the internal id of the node
-	Name   string `json:",omitempty"`
-	IP     string `json:",omitempty"`
-	Online int    `json:",omitempty"`
-	Local  int    `json:",omitempty"`
-}
+		// from /cluster endpoint
+		NodeID int    `json:",omitempty"` // the internal id of the node
+		Name   string `json:",omitempty"`
+		IP     string `json:",omitempty"`
+		Online int    `json:",omitempty"`
+		Local  int    `json:",omitempty"`
+	}
+)
 
 type Node struct {
 	Name       string
@@ -433,37 +437,39 @@ type Node struct {
 	Wait       float64
 }
 
-type VirtualMachines []*VirtualMachine
-type VirtualMachine struct {
-	client               *Client
-	VirtualMachineConfig *VirtualMachineConfig
+type (
+	VirtualMachines []*VirtualMachine
+	VirtualMachine  struct {
+		client               *Client
+		VirtualMachineConfig *VirtualMachineConfig
 
-	Name string
-	Node string
+		Name string
+		Node string
 
-	Agent          IntOrBool
-	NetIn          uint64
-	CPUs           int
-	DiskWrite      uint64
-	Status         string
-	Lock           string `json:",omitempty"`
-	VMID           StringOrUint64
-	PID            StringOrUint64
-	Netout         uint64
-	Disk           uint64
-	Mem            uint64
-	CPU            float64
-	MaxMem         uint64
-	MaxDisk        uint64
-	DiskRead       uint64
-	QMPStatus      string `json:"qmpstatus,omitempty"`
-	RunningMachine string `json:"running-machine,omitempty"`
-	RunningQemu    string `json:"running-qemu,omitempty"`
-	Tags           string `json:"tags,omitempty"`
-	Uptime         uint64
-	Template       IsTemplate // empty str if a vm, int 1 if a template
-	HA             HA         `json:",omitempty"`
-}
+		Agent          IntOrBool
+		NetIn          uint64
+		CPUs           int
+		DiskWrite      uint64
+		Status         string
+		Lock           string `json:",omitempty"`
+		VMID           StringOrUint64
+		PID            StringOrUint64
+		Netout         uint64
+		Disk           uint64
+		Mem            uint64
+		CPU            float64
+		MaxMem         uint64
+		MaxDisk        uint64
+		DiskRead       uint64
+		QMPStatus      string `json:"qmpstatus,omitempty"`
+		RunningMachine string `json:"running-machine,omitempty"`
+		RunningQemu    string `json:"running-qemu,omitempty"`
+		Tags           string `json:"tags,omitempty"`
+		Uptime         uint64
+		Template       IsTemplate // empty str if a vm, int 1 if a template
+		HA             HA         `json:",omitempty"`
+	}
+)
 
 type HA struct {
 	Managed int
@@ -536,11 +542,13 @@ type RRDData struct {
 
 // VirtualMachineOptions A key/value pair used to modify a virtual machine config
 // Refer to https://pve.proxmox.com/pve-docs/api-viewer/#/nodes/{node}/qemu/{vmid}/config for a list of valid values
-type VirtualMachineOptions []*VirtualMachineOption
-type VirtualMachineOption struct {
-	Name  string
-	Value interface{}
-}
+type (
+	VirtualMachineOptions []*VirtualMachineOption
+	VirtualMachineOption  struct {
+		Name  string
+		Value interface{}
+	}
+)
 
 type VirtualMachineConfig struct {
 	// PVE Metadata
@@ -817,27 +825,29 @@ type VirtualMachineMoveDiskOptions struct {
 
 type UPID string
 
-type Tasks []*Task
-type Task struct {
-	client       *Client
-	UPID         UPID
-	ID           string
-	Type         string
-	User         string
-	Status       string
-	Node         string
-	PID          uint64 `json:",omitempty"`
-	PStart       uint64 `json:",omitempty"`
-	Saved        string `json:",omitempty"`
-	ExitStatus   string `json:",omitempty"`
-	IsCompleted  bool
-	IsRunning    bool
-	IsFailed     bool
-	IsSuccessful bool
-	StartTime    time.Time     `json:"-"`
-	EndTime      time.Time     `json:"-"`
-	Duration     time.Duration `json:"-"`
-}
+type (
+	Tasks []*Task
+	Task  struct {
+		client       *Client
+		UPID         UPID
+		ID           string
+		Type         string
+		User         string
+		Status       string
+		Node         string
+		PID          uint64 `json:",omitempty"`
+		PStart       uint64 `json:",omitempty"`
+		Saved        string `json:",omitempty"`
+		ExitStatus   string `json:",omitempty"`
+		IsCompleted  bool
+		IsRunning    bool
+		IsFailed     bool
+		IsSuccessful bool
+		StartTime    time.Time     `json:"-"`
+		EndTime      time.Time     `json:"-"`
+		Duration     time.Duration `json:"-"`
+	}
+)
 
 func (t *Task) UnmarshalJSON(b []byte) error {
 	var tmp map[string]interface{}
@@ -888,22 +898,24 @@ func (l *Log) UnmarshalJSON(b []byte) error {
 	return copier.Copy(l, Log(log))
 }
 
-type Containers []*Container
-type Container struct {
-	client          *Client
-	ContainerConfig *ContainerConfig
+type (
+	Containers []*Container
+	Container  struct {
+		client          *Client
+		ContainerConfig *ContainerConfig
 
-	CPUs    int
-	MaxDisk uint64
-	MaxMem  uint64
-	MaxSwap uint64
-	Name    string
-	Node    string
-	Status  string
-	Tags    string
-	Uptime  uint64
-	VMID    StringOrUint64
-}
+		CPUs    int
+		MaxDisk uint64
+		MaxMem  uint64
+		MaxSwap uint64
+		Name    string
+		Node    string
+		Status  string
+		Tags    string
+		Uptime  uint64
+		VMID    StringOrUint64
+	}
+)
 
 type ContainerInterfaces []*ContainerInterface
 
@@ -1030,47 +1042,53 @@ func (cc *ContainerConfig) UnmarshalJSON(data []byte) error {
 
 // ContainerOptions A key/value pair used to modify a container(LXC) config
 // Refer to https://pve.proxmox.com/pve-docs/api-viewer/#/nodes/{node}/lxc/{vmid}/config for a list of valid values
-type ContainerOptions []*ContainerOption
-type ContainerOption struct {
-	Name  string
-	Value interface{}
-}
+type (
+	ContainerOptions []*ContainerOption
+	ContainerOption  struct {
+		Name  string
+		Value interface{}
+	}
+)
 
-type Appliances []*Appliance
-type Appliance struct {
-	client       *Client
-	Node         string `json:",omitempty"`
-	Os           string
-	Source       string
-	Type         string
-	SHA512Sum    string
-	Package      string
-	Template     string
-	Architecture string
-	InfoPage     string
-	Description  string
-	ManageURL    string
-	Version      string
-	Section      string
-	Headline     string
-}
+type (
+	Appliances []*Appliance
+	Appliance  struct {
+		client       *Client
+		Node         string `json:",omitempty"`
+		Os           string
+		Source       string
+		Type         string
+		SHA512Sum    string
+		Package      string
+		Template     string
+		Architecture string
+		InfoPage     string
+		Description  string
+		ManageURL    string
+		Version      string
+		Section      string
+		Headline     string
+	}
+)
 
-type Storages []*Storage
-type Storage struct {
-	client       *Client
-	Node         string
-	Name         string `json:"storage"`
-	Enabled      int
-	UsedFraction float64 `json:"used_fraction"`
-	Active       int
-	Content      string
-	Shared       int
-	Avail        uint64
-	Type         string
-	Used         uint64
-	Total        uint64
-	Storage      string `json:"-"` // Deprecated: Use Name instead. Excluded from JSON to prevent marshal/unmarshal issues.
-}
+type (
+	Storages []*Storage
+	Storage  struct {
+		client       *Client
+		Node         string
+		Name         string `json:"storage"`
+		Enabled      int
+		UsedFraction float64 `json:"used_fraction"`
+		Active       int
+		Content      string
+		Shared       int
+		Avail        uint64
+		Type         string
+		Used         uint64
+		Total        uint64
+		Storage      string
+	}
+)
 
 // UnmarshalJSON implements custom unmarshaling for Storage to handle large values
 // that may be returned as floats in scientific notation (e.g., values > 1PB)
@@ -1192,17 +1210,25 @@ type Volume interface {
 	Delete() error
 }
 
-type ISOs []*ISO
-type ISO struct{ Content }
+type (
+	ISOs []*ISO
+	ISO  struct{ Content }
+)
 
-type VzTmpls []*VzTmpl
-type VzTmpl struct{ Content }
+type (
+	VzTmpls []*VzTmpl
+	VzTmpl  struct{ Content }
+)
 
-type Imports []*Import
-type Import struct{ Content }
+type (
+	Imports []*Import
+	Import  struct{ Content }
+)
 
-type Backups []*Backup
-type Backup struct{ Content }
+type (
+	Backups []*Backup
+	Backup  struct{ Content }
+)
 
 type Content struct {
 	client  *Client
@@ -1314,50 +1340,52 @@ func (b *IntOrBool) MarshalJSON() ([]byte, error) {
 	return []byte("0"), nil
 }
 
-type NodeNetworks []*NodeNetwork
-type NodeNetwork struct {
-	client  *Client
-	Node    string `json:"-"`
-	NodeAPI *Node  `json:"-"`
+type (
+	NodeNetworks []*NodeNetwork
+	NodeNetwork  struct {
+		client  *Client
+		Node    string `json:"-"`
+		NodeAPI *Node  `json:"-"`
 
-	Iface     string `json:"iface,omitempty"`
-	Autostart int    `json:"autostart,omitempty"`
+		Iface     string `json:"iface,omitempty"`
+		Autostart int    `json:"autostart,omitempty"`
 
-	CIDR               string `json:"cidr,omitempty"`
-	CIDR6              string `json:"cidr6,omitempty"`
-	Gateway            string `json:"gateway,omitempty"`
-	Gateway6           string `json:"gateway6,omitempty"`
-	MTU                string `json:"mtu,omitempty"`
-	Netmask            string `json:"netmask,omitempty"`
-	Netmask6           string `json:"netmask6,omitempty"`
-	VLANID             string `json:"vlan-id,omitempty"`
-	VLANRawDevice      string `json:"vlan-raw-device,omitempty"`
-	BridgeVLANAware    int    `json:"bridge_vlan_aware,omitempty"`
-	BridgePorts        string `json:"bridge_ports,omitempty"`
-	BridgeStp          string `json:"bridge_stp,omitempty"` // not in current docs, deprecated?
-	BridgeFd           string `json:"bridge_fd,omitempty"`  // not in current docs, deprecated?
-	Comments           string `json:"comments,omitempty"`
-	Comments6          string `json:"comments6,omitempty"`
-	BondPrimary        string `json:"bond-primary,omitempty"`
-	BondMode           string `json:"bond_mode,omitempty"`
-	BondXmit           string `json:"bond_xmit,omitempty"`
-	BondXmitHashPolicy string `json:"bond_xmit_hash_policy,omitempty"`
+		CIDR               string `json:"cidr,omitempty"`
+		CIDR6              string `json:"cidr6,omitempty"`
+		Gateway            string `json:"gateway,omitempty"`
+		Gateway6           string `json:"gateway6,omitempty"`
+		MTU                string `json:"mtu,omitempty"`
+		Netmask            string `json:"netmask,omitempty"`
+		Netmask6           string `json:"netmask6,omitempty"`
+		VLANID             string `json:"vlan-id,omitempty"`
+		VLANRawDevice      string `json:"vlan-raw-device,omitempty"`
+		BridgeVLANAware    int    `json:"bridge_vlan_aware,omitempty"`
+		BridgePorts        string `json:"bridge_ports,omitempty"`
+		BridgeStp          string `json:"bridge_stp,omitempty"` // not in current docs, deprecated?
+		BridgeFd           string `json:"bridge_fd,omitempty"`  // not in current docs, deprecated?
+		Comments           string `json:"comments,omitempty"`
+		Comments6          string `json:"comments6,omitempty"`
+		BondPrimary        string `json:"bond-primary,omitempty"`
+		BondMode           string `json:"bond_mode,omitempty"`
+		BondXmit           string `json:"bond_xmit,omitempty"`
+		BondXmitHashPolicy string `json:"bond_xmit_hash_policy,omitempty"`
 
-	OVSBonds   string `json:"ovs_bonds,omitempty"`
-	OVSBridge  string `json:"ovs_bridge,omitempty"`
-	OVSOptions string `json:"ovs_options,omitempty"`
-	OVSPorts   string `json:"ovs_ports,omitempty"`
-	OVSTags    string `json:"ovs_tag,omitempty"`
+		OVSBonds   string `json:"ovs_bonds,omitempty"`
+		OVSBridge  string `json:"ovs_bridge,omitempty"`
+		OVSOptions string `json:"ovs_options,omitempty"`
+		OVSPorts   string `json:"ovs_ports,omitempty"`
+		OVSTags    string `json:"ovs_tag,omitempty"`
 
-	Slaves   string      `json:"slaves,omitempty"`
-	Address  string      `json:"address,omitempty"`
-	Address6 string      `json:"address6,omitempty"`
-	Type     string      `json:"type,omitempty"`
-	Active   StringOrInt `json:"active,omitempty"`
-	Method   string      `json:"method,omitempty"`
-	Method6  string      `json:"method6,omitempty"`
-	Priority int         `json:"priority,omitempty"`
-}
+		Slaves   string      `json:"slaves,omitempty"`
+		Address  string      `json:"address,omitempty"`
+		Address6 string      `json:"address6,omitempty"`
+		Type     string      `json:"type,omitempty"`
+		Active   StringOrInt `json:"active,omitempty"`
+		Method   string      `json:"method,omitempty"`
+		Method6  string      `json:"method6,omitempty"`
+		Priority int         `json:"priority,omitempty"`
+	}
+)
 
 type AgentNetworkIPAddress struct {
 	IPAddressType string `json:"ip-address-type"` // ipv4 ipv6
@@ -1461,13 +1489,15 @@ type Snapshot struct {
 	Snapstate   string
 }
 
-type Pools []*Pool
-type Pool struct {
-	client  *Client
-	PoolID  string            `json:"poolid,omitempty"`
-	Comment string            `json:"comment,omitempty"`
-	Members []ClusterResource `json:"members,omitempty"`
-}
+type (
+	Pools []*Pool
+	Pool  struct {
+		client  *Client
+		PoolID  string            `json:"poolid,omitempty"`
+		Comment string            `json:"comment,omitempty"`
+		Members []ClusterResource `json:"members,omitempty"`
+	}
+)
 
 type PoolUpdateOption struct {
 	Comment string `json:"comment,omitempty"`
@@ -1489,50 +1519,52 @@ const (
 	DomainTypePVE    = DomainType("pve")
 )
 
-type Domains []*Domain
-type Domain struct {
-	client *Client
-	Realm  string `json:",omitempty"`
-	Type   string `json:",omitempty"`
+type (
+	Domains []*Domain
+	Domain  struct {
+		client *Client
+		Realm  string `json:",omitempty"`
+		Type   string `json:",omitempty"`
 
-	// options https://pve.proxmox.com/pve-docs/api-viewer/#/access/domains
-	ACRValues      string    `json:"acr-values,omitempty"`
-	AutoCreate     IntOrBool `json:"autocreate,omitempty"`
-	BaseDN         string    `json:"base_dn,omitempty"`
-	BindDN         string    `json:"bind_dn,omitempty"`
-	CAPath         string    `json:"capath,omitempty"`
-	CaseSensitive  IntOrBool `json:"case-sensitive,omitempty"`
-	Cert           string    `json:"cert,omitempty"`
-	CertKey        string    `json:"certkey,omitempty"`
-	ClientID       string    `json:"client-id,omitempty"`
-	ClientKey      string    `json:"client-key,omitempty"`
-	Comment        string    `json:"comment,omitempty"`
-	Default        IntOrBool `json:"default,omitempty"`
-	DeleteList     string    `json:"delete,omitempty"` // a list of settings you want to delete?
-	Digest         string    `json:"digest,omitempty"`
-	Domain         string    `json:"domain,omitempty"`
-	Filter         string    `json:"filter,omitempty"`
-	GroupClasses   string    `json:"group_classes,omitempty"`
-	GroupDN        string    `json:"group_dn,omitempty"`
-	GroupFilter    string    `json:"group_filter,omitempty"`
-	GroupName      string    `json:"group_name,omitempty"`
-	IssuerURL      string    `json:"issuer-url,omitempty"`
-	Mode           string    `json:"mode,omitempty"` // ldap, ldaps,ldap+starttls
-	Password       string    `json:"password,omitempty"`
-	Port           int       `json:"port,omitempty"`
-	Prompt         string    `json:"prompt,omitempty"`
-	Scopes         string    `json:"scopes,omitempty"`
-	Secure         IntOrBool `json:"secure,omitempty"`
-	Server1        string    `json:"server1,omitempty"`
-	Server2        string    `json:"server2,omitempty"`
-	SSLVersion     string    `json:"sslversion,omitempty"`
-	SyncDefaults   string    `json:"sync-defaults,omitempty"`
-	SyncAttributes string    `json:"sync_attributes,omitempty"`
-	TFA            string    `json:"tfa,omitempty"`
-	UserAttr       string    `json:"user_attr,omitempty"`
-	UserClasses    string    `json:"user_classes,omitempty"`
-	Verify         IntOrBool `json:"verify"`
-}
+		// options https://pve.proxmox.com/pve-docs/api-viewer/#/access/domains
+		ACRValues      string    `json:"acr-values,omitempty"`
+		AutoCreate     IntOrBool `json:"autocreate,omitempty"`
+		BaseDN         string    `json:"base_dn,omitempty"`
+		BindDN         string    `json:"bind_dn,omitempty"`
+		CAPath         string    `json:"capath,omitempty"`
+		CaseSensitive  IntOrBool `json:"case-sensitive,omitempty"`
+		Cert           string    `json:"cert,omitempty"`
+		CertKey        string    `json:"certkey,omitempty"`
+		ClientID       string    `json:"client-id,omitempty"`
+		ClientKey      string    `json:"client-key,omitempty"`
+		Comment        string    `json:"comment,omitempty"`
+		Default        IntOrBool `json:"default,omitempty"`
+		DeleteList     string    `json:"delete,omitempty"` // a list of settings you want to delete?
+		Digest         string    `json:"digest,omitempty"`
+		Domain         string    `json:"domain,omitempty"`
+		Filter         string    `json:"filter,omitempty"`
+		GroupClasses   string    `json:"group_classes,omitempty"`
+		GroupDN        string    `json:"group_dn,omitempty"`
+		GroupFilter    string    `json:"group_filter,omitempty"`
+		GroupName      string    `json:"group_name,omitempty"`
+		IssuerURL      string    `json:"issuer-url,omitempty"`
+		Mode           string    `json:"mode,omitempty"` // ldap, ldaps,ldap+starttls
+		Password       string    `json:"password,omitempty"`
+		Port           int       `json:"port,omitempty"`
+		Prompt         string    `json:"prompt,omitempty"`
+		Scopes         string    `json:"scopes,omitempty"`
+		Secure         IntOrBool `json:"secure,omitempty"`
+		Server1        string    `json:"server1,omitempty"`
+		Server2        string    `json:"server2,omitempty"`
+		SSLVersion     string    `json:"sslversion,omitempty"`
+		SyncDefaults   string    `json:"sync-defaults,omitempty"`
+		SyncAttributes string    `json:"sync_attributes,omitempty"`
+		TFA            string    `json:"tfa,omitempty"`
+		UserAttr       string    `json:"user_attr,omitempty"`
+		UserClasses    string    `json:"user_classes,omitempty"`
+		Verify         IntOrBool `json:"verify"`
+	}
+)
 
 // DomainSyncOptions see details https://pve.proxmox.com/pve-docs/api-viewer/#/access/domains/{realm}/sync
 type DomainSyncOptions struct {
@@ -1542,32 +1574,36 @@ type DomainSyncOptions struct {
 	Scope          string `json:"scope,omitempty"` // users, groups, both
 }
 
-type Groups []*Group
-type Group struct {
-	client  *Client
-	GroupID string   `json:"groupid,omitempty"`
-	Comment string   `json:"comment,omitempty"`
-	Users   string   `json:"users,omitempty"`   // only populated via Groups lister
-	Members []string `json:"members,omitempty"` // only populated via Group read
-}
+type (
+	Groups []*Group
+	Group  struct {
+		client  *Client
+		GroupID string   `json:"groupid,omitempty"`
+		Comment string   `json:"comment,omitempty"`
+		Users   string   `json:"users,omitempty"`   // only populated via Groups lister
+		Members []string `json:"members,omitempty"` // only populated via Group read
+	}
+)
 
-type Users []*User
-type User struct {
-	client         *Client
-	UserID         string           `json:"userid,omitempty"`
-	Comment        string           `json:"comment,omitempty"`
-	Email          string           `json:"email,omitempty"`
-	Enable         IntOrBool        `json:"enable"`
-	Expire         int              `json:"expire,omitempty"`
-	Firstname      string           `json:"firstname,omitempty"`
-	Lastname       string           `json:"lastname,omitempty"`
-	Groups         []string         `json:"groups,omitempty"`
-	Keys           string           `json:"keys,omitempty"`
-	Tokens         map[string]Token `json:"tokens,omitempty"`
-	RealmType      string           `json:"realm-type,omitempty"`
-	TFALockedUntil string           `json:"tfa-locked-until,omitempty"`
-	TOTPLocked     IntOrBool        `json:"totp-locked,omitempty"`
-}
+type (
+	Users []*User
+	User  struct {
+		client         *Client
+		UserID         string           `json:"userid,omitempty"`
+		Comment        string           `json:"comment,omitempty"`
+		Email          string           `json:"email,omitempty"`
+		Enable         IntOrBool        `json:"enable"`
+		Expire         int              `json:"expire,omitempty"`
+		Firstname      string           `json:"firstname,omitempty"`
+		Lastname       string           `json:"lastname,omitempty"`
+		Groups         []string         `json:"groups,omitempty"`
+		Keys           string           `json:"keys,omitempty"`
+		Tokens         map[string]Token `json:"tokens,omitempty"`
+		RealmType      string           `json:"realm-type,omitempty"`
+		TFALockedUntil string           `json:"tfa-locked-until,omitempty"`
+		TOTPLocked     IntOrBool        `json:"totp-locked,omitempty"`
+	}
+)
 
 type UserOptions struct {
 	Append    IntOrBool `json:"append,omitempty"`
@@ -1581,30 +1617,36 @@ type UserOptions struct {
 	Lastname  string    `json:"lastname,omitempty"`
 }
 
-type Tokens []*Token
-type Token struct {
-	TokenID string    `json:"tokenid,omitempty"`
-	Comment string    `json:"comment,omitempty"`
-	Expire  int       `json:"expire,omitempty"`
-	Privsep IntOrBool `json:"privsep"`
-}
+type (
+	Tokens []*Token
+	Token  struct {
+		TokenID string    `json:"tokenid,omitempty"`
+		Comment string    `json:"comment,omitempty"`
+		Expire  int       `json:"expire,omitempty"`
+		Privsep IntOrBool `json:"privsep"`
+	}
+)
 
-type Roles []*Role
-type Role struct {
-	client  *Client
-	RoleID  string    `json:"roleid,omitempty"`
-	Privs   string    `json:"privs,omitempty"`
-	Special IntOrBool `json:"special,omitempty"`
-}
+type (
+	Roles []*Role
+	Role  struct {
+		client  *Client
+		RoleID  string    `json:"roleid,omitempty"`
+		Privs   string    `json:"privs,omitempty"`
+		Special IntOrBool `json:"special,omitempty"`
+	}
+)
 
-type ACLs []*ACL
-type ACL struct {
-	Path      string    `json:"path,omitempty"`
-	RoleID    string    `json:"roleid,omitempty"`
-	Type      string    `json:"type,omitempty"`
-	UGID      string    `json:"ugid,omitempty"`
-	Propagate IntOrBool `json:"propagate,omitempty"`
-}
+type (
+	ACLs []*ACL
+	ACL  struct {
+		Path      string    `json:"path,omitempty"`
+		RoleID    string    `json:"roleid,omitempty"`
+		Type      string    `json:"type,omitempty"`
+		UGID      string    `json:"ugid,omitempty"`
+		Propagate IntOrBool `json:"propagate,omitempty"`
+	}
+)
 
 type ACLOptions struct {
 	Path      string    `json:"path,omitempty"`

@@ -281,7 +281,6 @@ func TestNewUser(t *testing.T) {
 		UserID: "test",
 	}
 	assert.Nil(t, client.NewUser(ctx, &user))
-
 }
 
 func TestAPITokens(t *testing.T) {
@@ -313,7 +312,6 @@ func TestAPIToken(t *testing.T) {
 	token, err := User.APIToken(ctx, "test")
 	assert.Nil(t, err)
 	assert.NotNil(t, token)
-
 }
 
 func TestUpdateAPIToken(t *testing.T) {

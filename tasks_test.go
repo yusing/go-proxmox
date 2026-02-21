@@ -123,4 +123,3 @@ func TestTask_Log_Running(t *testing.T) {
 	assert.Equal(t, "task started", log[0])
 	assert.Equal(t, "processing...", log[1])
 }
-

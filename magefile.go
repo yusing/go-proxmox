@@ -18,20 +18,18 @@ import (
 	"github.com/luthermonson/go-proxmox/mage/test"
 )
 
-var (
-	envConfig = map[string]struct{}{
-		"PROXMOX_URL":              {},
-		"PROXMOX_USERNAME":         {},
-		"PROXMOX_PASSWORD":         {},
-		"PROXMOX_OTP":              {},
-		"PROXMOX_TOKENID":          {},
-		"PROXMOX_SECRET":           {},
-		"PROXMOX_NODE_NAME":        {},
-		"PROXMOX_NODE_STORAGE":     {},
-		"PROXMOX_APPLIANCE_PREFIX": {},
-		"PROXMOX_ISO_URL":          {},
-	}
-)
+var envConfig = map[string]struct{}{
+	"PROXMOX_URL":              {},
+	"PROXMOX_USERNAME":         {},
+	"PROXMOX_PASSWORD":         {},
+	"PROXMOX_OTP":              {},
+	"PROXMOX_TOKENID":          {},
+	"PROXMOX_SECRET":           {},
+	"PROXMOX_NODE_NAME":        {},
+	"PROXMOX_NODE_STORAGE":     {},
+	"PROXMOX_APPLIANCE_PREFIX": {},
+	"PROXMOX_ISO_URL":          {},
+}
 
 var Aliases = map[string]interface{}{
 	"test":    test.Unit,

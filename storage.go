@@ -52,7 +52,6 @@ func (c *Client) NewClusterStorage(ctx context.Context, options ...ClusterStorag
 		data[option.Name] = option.Value
 	}
 	err := c.Post(ctx, "/storage", data, &upid)
-
 	if err != nil {
 		return nil, err
 	}

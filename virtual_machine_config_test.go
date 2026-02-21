@@ -209,7 +209,7 @@ func TestVirtualMachineConfig_MergeIndexedDevices_IgnoresNonNumeric(t *testing.T
 	// This tests that fields like SCSIHW (which starts with SCSI but has non-numeric suffix)
 	// are correctly ignored by the merge function
 	config := &VirtualMachineConfig{
-		SCSI0:   "local-lvm:vm-100-disk-0,size=32G",
+		SCSI0:  "local-lvm:vm-100-disk-0,size=32G",
 		SCSIHW: "virtio-scsi-pci",
 	}
 

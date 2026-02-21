@@ -141,7 +141,6 @@ func TestVirtualMachineStateWithoutQMPStatus(t *testing.T) {
 	assert.False(t, hibernatedVM.IsRunning())
 }
 
-
 func TestVirtualMachine_Config(t *testing.T) {
 	mocks.On(mockConfig)
 	defer mocks.Off()
