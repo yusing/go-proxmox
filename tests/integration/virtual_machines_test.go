@@ -1,5 +1,4 @@
 //go:build nodes
-// +build nodes
 
 package integration
 
@@ -59,14 +58,16 @@ func CleanupVirtualMachine(t *testing.T, vm *proxmox.VirtualMachine) {
 	require.NoError(t, err)
 	require.NoError(t, task.Wait(context.TODO(), 1*time.Second, 30*time.Second))
 
-	if vm.VirtualMachineConfig != nil && vm.VirtualMachineConfig.IDE2 != "" {
-		s := strings.Split(vm.VirtualMachineConfig.IDE2, ",")
-		if len(s) > 2 {
-			iso, err := td.storage.ISO(context.TODO(), filepath.Base(s[0]))
-			assert.Nil(t, err)
-			task, err := iso.Delete(context.TODO())
-			require.NoError(t, err)
-			require.NoError(t, task.Wait(context.TODO(), 1*time.Second, 10*time.Second))
+	if vm.VirtualMachineConfig != nil {
+		if ide2 := vm.VirtualMachineConfig.IDEs["ide2"]; ide2 != "" {
+			s := strings.Split(ide2, ",")
+			if len(s) > 2 {
+				iso, err := td.storage.ISO(context.TODO(), filepath.Base(s[0]))
+				assert.Nil(t, err)
+				task, err := iso.Delete(context.TODO())
+				require.NoError(t, err)
+				require.NoError(t, task.Wait(context.TODO(), 1*time.Second, 10*time.Second))
+			}
 		}
 	}
 
@@ -119,11 +120,11 @@ func TestNode_NewVirtualMachine(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Reboot disabled for now doesn't work great w/o the guest agent installed so will uncomment when that's done
-	// task, err = vm.Reboot()
-	// assert.NoError(t, err)
-	// assert.NoError(t, task.Wait(1*time.Second, 60*time.Second))
-	// require.NoError(t, vm.Ping())
-	// assert.Equal(t, StatusVirtualMachineRunning, vm.Status)
+	//task, err = vm.Reboot()
+	//assert.NoError(t, err)
+	//assert.NoError(t, task.Wait(1*time.Second, 60*time.Second))
+	//require.NoError(t, vm.Ping())
+	//assert.Equal(t, StatusVirtualMachineRunning, vm.Status)
 
 	// Stop
 	task, err = vm.Stop(context.TODO())

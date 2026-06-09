@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/buger/goterm v1.0.4
-	github.com/diskfs/go-diskfs v1.9.1
+	github.com/diskfs/go-diskfs v1.9.3
 	github.com/gorilla/websocket v1.5.3
 	github.com/h2non/gock v1.2.0
 	github.com/jinzhu/copier v0.4.0

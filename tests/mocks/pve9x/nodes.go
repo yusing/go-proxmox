@@ -172,6 +172,71 @@ func nodes() {
     }
 }`)
 
+	// POST /nodes/{node}/network — create new interface, echoes a body back.
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/network$").
+		Reply(200).
+		JSON(`{
+    "data": {
+        "iface": "vmbr99",
+        "type": "bridge",
+        "method": "static",
+        "method6": "manual",
+        "address": "10.0.0.1",
+        "netmask": "24",
+        "cidr": "10.0.0.1/24",
+        "autostart": 1
+    }
+}`)
+
+	// PUT /nodes/{node}/network — reload pending changes; returns UPID.
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/network$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00009999:00009999:00009999:srvreload:networking:root@pam:"}`)
+
+	// PUT /nodes/{node}/network/{iface} — update interface.
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/network/vmbr99$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// DELETE /nodes/{node}/network/{iface} — drop interface.
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/network/vmbr99$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00009998:00009998:00009998:srvreload:networking:root@pam:"}`)
+
+	// POST /nodes/{node}/qemu — create new VM. Returns a UPID. Lives on the
+	// nodes group because the (*Node).NewVirtualMachine creates against the
+	// node, not a specific VMID.
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/qemu$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00007777:00007777:00007777:qmcreate:300:root@pam:"}`)
+
+	// POST /nodes/{node}/lxc — create new container.
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/lxc$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00007778:00007778:00007778:vzcreate:300:root@pam:"}`)
+
+	// GET /cluster/sdn/ipams/{node}/status — IPAM listing scoped to node.
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/cluster/sdn/ipams/node1/status$").
+		Reply(200).
+		JSON(`{"data": [
+			{"hostname": "vm100", "ip": "10.0.0.10", "mac": "aa:bb:cc:dd:ee:01", "subnet": "10.0.0.0/24", "vmid": "100", "vnet": "vnet1", "zone": "zone1"},
+			{"hostname": "vm101", "ip": "10.0.0.11", "mac": "aa:bb:cc:dd:ee:02", "subnet": "10.0.0.0/24", "vmid": "101", "vnet": "vnet1", "zone": "zone1"}
+		]}`)
+
 	gock.New(config.C.URI).
 		Persist().
 		Get("^/nodes/node1/network").
@@ -451,6 +516,27 @@ func nodes() {
     }
 }`)
 
+	// GET /nodes/{node}/storage/local-lvm/status — same listing entry as
+	// above's /storage but called by name. local-lvm only stores images and
+	// rootdir; used by tests that verify cloud-init refuses non-iso storages.
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/storage/local-lvm/status$").
+		Reply(200).
+		JSON(`{
+    "data": {
+        "storage": "local-lvm",
+        "content": "images,rootdir",
+        "type": "lvmthin",
+        "active": 1,
+        "avail": 100000000000,
+        "used": 20000000000,
+        "total": 120000000000,
+        "enabled": 1,
+        "shared": 0
+    }
+}`)
+
 	// GET /nodes/{node}/storage/{storage}/content - List storage content
 	gock.New(config.C.URI).
 		Persist().
@@ -625,6 +711,57 @@ func nodes() {
     "data": null
 }`)
 
+	// GET /nodes/{node}/certificates - Directory index
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/certificates$").
+		Reply(200).
+		JSON(`{
+    "data": [
+        {"name": "info"},
+        {"name": "custom"},
+        {"name": "acme"}
+    ]
+}`)
+
+	// GET /nodes/{node}/certificates/acme - ACME directory index
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/certificates/acme$").
+		Reply(200).
+		JSON(`{
+    "data": [
+        {"name": "certificate"}
+    ]
+}`)
+
+	// POST /nodes/{node}/certificates/acme/certificate - Order ACME cert
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/certificates/acme/certificate$").
+		Reply(200).
+		JSON(`{
+    "data": "UPID:node1:00001234:00005678:12345678:acme-new-cert:pveproxy:root@pam:"
+}`)
+
+	// PUT /nodes/{node}/certificates/acme/certificate - Renew ACME cert
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/certificates/acme/certificate$").
+		Reply(200).
+		JSON(`{
+    "data": "UPID:node1:00001234:00005678:12345678:acme-renew-cert:pveproxy:root@pam:"
+}`)
+
+	// DELETE /nodes/{node}/certificates/acme/certificate - Revoke ACME cert
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/certificates/acme/certificate$").
+		Reply(200).
+		JSON(`{
+    "data": "UPID:node1:00001234:00005678:12345678:acme-revoke-cert:pveproxy:root@pam:"
+}`)
+
 	// POST /nodes/{node}/vzdump - Backup VMs
 	gock.New(config.C.URI).
 		Persist().
@@ -642,4 +779,464 @@ func nodes() {
 		JSON(`{
     "data": "cores: 2\nmemory: 2048\nostype: debian\nrootfs: local-lvm:vm-100-disk-0,size=8G\nnet0: name=eth0,bridge=vmbr0,ip=dhcp"
 }`)
+
+	// GET /nodes/{node}/dns - Read resolver config.
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/dns$").
+		Reply(200).
+		JSON(`{
+    "data": {
+        "search": "example.com",
+        "dns1": "1.1.1.1",
+        "dns2": "8.8.8.8",
+        "dns3": "9.9.9.9"
+    }
+}`)
+
+	// PUT /nodes/{node}/dns - Replace resolver config. Returns null on success.
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/dns$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// GET /nodes/{node}/services
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/services$").
+		Reply(200).
+		JSON(`{"data": [
+			{"service": "pveproxy", "name": "pveproxy", "desc": "PVE API Proxy", "state": "running", "active-state": "active", "unit-state": "enabled"},
+			{"service": "sshd",     "name": "sshd",     "desc": "OpenSSH server",  "state": "running", "active-state": "active", "unit-state": "enabled"}
+		]}`)
+
+	// GET /nodes/{node}/services/{service}/state
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/services/pveproxy/state$").
+		Reply(200).
+		JSON(`{"data": {"service": "pveproxy", "name": "pveproxy", "desc": "PVE API Proxy", "state": "running", "active-state": "active", "unit-state": "enabled"}}`)
+
+	// POST /nodes/{node}/services/{service}/{action}
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/services/pveproxy/(start|stop|restart|reload)$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00012345:67890123:srvstart:pveproxy:root@pam:"}`)
+
+	// GET /nodes/{node}/time - Read time + timezone
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/time$").
+		Reply(200).
+		JSON(`{"data": {"time": 1715500000, "localtime": 1715500000, "timezone": "UTC"}}`)
+
+	// PUT /nodes/{node}/time - Set timezone
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/time$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// GET /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": {"status": "active", "key": "pve8c-1234567890", "level": "c", "productname": "PVE Community 1 CPU/year", "sockets": 1, "nextduedate": "2026-12-31"}}`)
+
+	// PUT /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// POST /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// DELETE /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// POST /nodes/{node}/startall — mass start
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/startall$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001111:00002222:5A3B7C8D:startall::root@pam:"}`)
+
+	// POST /nodes/{node}/stopall — mass stop
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/stopall$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001111:00002222:5A3B7C8D:stopall::root@pam:"}`)
+
+	// POST /nodes/{node}/suspendall — mass suspend
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/suspendall$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001111:00002222:5A3B7C8D:suspendall::root@pam:"}`)
+
+	// POST /nodes/{node}/migrateall — mass migrate
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/migrateall$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001111:00002222:5A3B7C8D:migrateall::root@pam:"}`)
+
+	// POST /nodes/{node}/wakeonlan — returns the MAC string
+	gock.New(config.C.URI).
+		Post("^/nodes/node1/wakeonlan$").
+		Reply(200).
+		JSON(`{"data": "AA:BB:CC:DD:EE:FF"}`)
+
+	// GET /nodes/{node}/replication
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication$").
+		Reply(200).
+		JSON(`{"data": [
+			{"id": "100-0", "type": "local", "source": "node1", "target": "node2", "guest": 100, "jobnum": 0, "last_sync": 1715500000, "next_sync": 1715501000, "state": "idle"}
+		]}`)
+
+	// GET /nodes/{node}/replication/{id}/status
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication/100-0/status$").
+		Reply(200).
+		JSON(`{"data": {"id": "100-0", "type": "local", "target": "node2", "guest": 100, "jobnum": 0, "last_sync": 1715500000, "state": "idle", "fail_count": 0}}`)
+
+	// GET /nodes/{node}/replication/{id}/log
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication/100-0/log$").
+		Reply(200).
+		JSON(`{"data": [
+			{"n": 1, "t": "2025-05-12 10:00:00 100-0: start replication job"},
+			{"n": 2, "t": "2025-05-12 10:00:05 100-0: end replication job"}
+		]}`)
+
+	// POST /nodes/{node}/replication/{id}/schedule_now
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/replication/100-0/schedule_now$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00012345:67890124:replicate:100-0:root@pam:"}`)
+
+	// GET /nodes/{node}/apt
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt$").
+		Reply(200).
+		JSON(`{"data": [
+			{"id": "changelog"},
+			{"id": "repositories"},
+			{"id": "update"},
+			{"id": "versions"}
+		]}`)
+
+	// GET /nodes/{node}/apt/update — pending upgrades
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/update$").
+		Reply(200).
+		JSON(`{"data": [
+			{"Package": "pve-manager", "Title": "Proxmox VE Management", "Description": "PVE manager", "Version": "9.1-2", "OldVersion": "9.1-1", "Origin": "Proxmox", "Arch": "amd64", "Section": "admin", "Priority": "optional"}
+		]}`)
+
+	// POST /nodes/{node}/apt/update — refresh index, returns UPID
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/apt/update$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:0000ABCD:0001ABCD:67890125:aptupdate::root@pam:"}`)
+
+	// GET /nodes/{node}/apt/changelog
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/changelog").
+		Reply(200).
+		JSON(`{"data": "pve-manager (9.1-2) bookworm; urgency=medium\n  * fix things\n"}`)
+
+	// GET /nodes/{node}/apt/repositories
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/repositories$").
+		Reply(200).
+		JSON(`{"data": {
+			"digest": "abcdef0123456789",
+			"files": [
+				{
+					"path": "/etc/apt/sources.list",
+					"file-type": "list",
+					"digest": [1,2,3,4],
+					"repositories": [
+						{"Enabled": true, "FileType": "list", "Types": ["deb"], "URIs": ["http://deb.debian.org/debian"], "Suites": ["bookworm"], "Components": ["main", "contrib"]}
+					]
+				}
+			],
+			"errors": [],
+			"infos": [
+				{"path": "/etc/apt/sources.list.d/pve-enterprise.list", "index": "0", "kind": "warning", "message": "Enterprise repo configured without subscription", "property": "Enabled"}
+			],
+			"standard-repos": [
+				{"handle": "enterprise", "name": "Proxmox VE Enterprise", "status": false},
+				{"handle": "no-subscription", "name": "Proxmox VE No-Subscription"}
+			]
+		}}`)
+
+	// POST /nodes/{node}/apt/repositories — change (enable/disable) existing repo
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/apt/repositories$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// PUT /nodes/{node}/apt/repositories — add standard repository
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/apt/repositories$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// GET /nodes/{node}/apt/versions
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/versions$").
+		Reply(200).
+		JSON(`{"data": [
+			{"Package": "pve-manager", "Title": "Proxmox VE Management", "Description": "PVE manager", "Version": "9.1-1", "Origin": "Proxmox", "Arch": "amd64", "Section": "admin", "Priority": "optional", "CurrentState": "Installed", "ManagerVersion": "9.1-1"},
+			{"Package": "proxmox-ve", "Title": "Proxmox VE", "Description": "Proxmox VE metapackage", "Version": "9.1-1", "Origin": "Proxmox", "Arch": "all", "Section": "admin", "Priority": "optional", "CurrentState": "Installed", "RunningKernel": "6.8.12-1-pve"}
+		]}`)
+
+	// --- /nodes/{node}/disks -------------------------------------------------
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/list").
+		Reply(200).
+		JSON(`{"data": [
+			{"devpath": "/dev/sda", "size": 512000000000, "model": "Samsung SSD 870 EVO", "type": "ssd", "health": "PASSED", "gpt": 1, "used": "LVM"},
+			{"devpath": "/dev/sdb", "size": 2000000000000, "model": "Seagate ST2000DM008", "type": "hdd", "health": "PASSED", "gpt": 0}
+		]}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/smart").
+		Reply(200).
+		JSON(`{"data": {"health": "PASSED", "type": "ata", "attributes": []}}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/disks/initgpt$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:diskinit:/dev/sda:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/disks/wipedisk$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:wipedisk:/dev/sda:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/directory$").
+		Reply(200).
+		JSON(`{"data": [
+			{"path": "/mnt/pve/iso", "device": "/dev/sda1", "type": "ext4", "options": "defaults"}
+		]}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/disks/directory$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:mkdir:iso:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/disks/directory/iso").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:rmdir:iso:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/lvm$").
+		Reply(200).
+		JSON(`{"data": {
+			"leaf": 0,
+			"children": [
+				{"name": "pve", "size": 500000000000, "free": 100000000000, "leaf": 0, "children": [
+					{"name": "/dev/sda", "size": 500000000000, "free": 100000000000, "leaf": 1}
+				]}
+			]
+		}}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/disks/lvm$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:mklvm:pve:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/disks/lvm/pve").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:rmlvm:pve:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/lvmthin$").
+		Reply(200).
+		JSON(`{"data": [
+			{"lv": "data", "lv_size": 400000000000, "metadata_size": 100000000, "metadata_used": 1000000, "used": 50000000000}
+		]}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/disks/lvmthin$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:mklvmthin:data:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/disks/lvmthin/data").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:rmlvmthin:data:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/zfs$").
+		Reply(200).
+		JSON(`{"data": [
+			{"name": "rpool", "health": "ONLINE", "size": 1000000000000, "alloc": 200000000000, "free": 800000000000, "frag": 5, "dedup": 1.0}
+		]}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks/zfs/rpool$").
+		Reply(200).
+		JSON(`{"data": {
+			"name": "rpool",
+			"state": "ONLINE",
+			"status": "healthy",
+			"scan": "scrub repaired 0B in 00:12:34 with 0 errors on Sun Apr 14 00:24:35 2024",
+			"errors": "No known data errors",
+			"children": [
+				{"name": "raidz2-0", "state": "ONLINE", "leaf": 0, "children": [
+					{"name": "/dev/sda", "state": "ONLINE", "leaf": 1, "read": 0, "write": 0, "cksum": 0},
+					{"name": "/dev/sdb", "state": "ONLINE", "leaf": 1, "read": 0, "write": 0, "cksum": 0}
+				]}
+			]
+		}}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/disks/zfs$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:mkzfs:rpool:root@pam:"}`)
+
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/disks/zfs/rpool").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00005678:12345678:rmzfs:rpool:root@pam:"}`)
+
+	// --- diridx endpoints (see nodes_diridx.go) ----------------------------
+
+	// GET /nodes/{node} — node root diridx
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1$").
+		Reply(200).
+		JSON(`{"data":[
+			{"subdir":"qemu"},
+			{"subdir":"lxc"},
+			{"subdir":"storage"},
+			{"subdir":"network"},
+			{"subdir":"tasks"},
+			{"subdir":"services"},
+			{"subdir":"subscription"},
+			{"subdir":"firewall"},
+			{"subdir":"replication"}
+		]}`)
+
+	// GET /nodes/{node}/firewall — node firewall diridx
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/firewall$").
+		Reply(200).
+		JSON(`{"data":[
+			{"subdir":"rules"},
+			{"subdir":"options"},
+			{"subdir":"log"}
+		]}`)
+
+	// GET /nodes/{node}/disks — node disks diridx
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/disks$").
+		Reply(200).
+		JSON(`{"data":[
+			{"subdir":"list"},
+			{"subdir":"smart"},
+			{"subdir":"initgpt"},
+			{"subdir":"wipedisk"},
+			{"subdir":"directory"},
+			{"subdir":"lvm"},
+			{"subdir":"lvmthin"},
+			{"subdir":"zfs"}
+		]}`)
+
+	// GET /nodes/{node}/services/{service} — per-service diridx
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/services/pveproxy$").
+		Reply(200).
+		JSON(`{"data":[
+			{"subdir":"state"},
+			{"subdir":"start"},
+			{"subdir":"stop"},
+			{"subdir":"restart"},
+			{"subdir":"reload"}
+		]}`)
+
+	// GET /nodes/{node}/replication/{id} — per-replication-job diridx
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication/101-0$").
+		Reply(200).
+		JSON(`{"data":[
+			{"subdir":"status"},
+			{"subdir":"log"},
+			{"subdir":"schedule_now"}
+		]}`)
+
+	// GET /nodes/{node}/storage/{storage} — diridx path that returns the
+	// storage's status/capability object directly (not a subdir list).
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/storage/local$").
+		Reply(200).
+		JSON(`{"data":{
+			"type":"dir",
+			"content":"images,rootdir,vztmpl,backup,iso,snippets",
+			"active":1,
+			"enabled":1,
+			"shared":0,
+			"total":60000000000,
+			"used":10000000000,
+			"avail":50000000000,
+			"used_fraction":0.16667
+		}}`)
 }

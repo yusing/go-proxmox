@@ -1,3 +1,5 @@
+//go:build nodes || containers || vms
+
 package integration
 
 import (
@@ -47,7 +49,7 @@ func TestClusterResources(t *testing.T) {
 			assert.GreaterOrEqual(t, len(rs), 1)
 		}
 
-		var s interface{}
+		var s any
 		// api v2 returns type = qemu or lxc when filtering on vm
 		if rsType == "vm" {
 			s = []string{"qemu", "lxc"}

@@ -14,10 +14,10 @@ const (
 )
 
 type LeveledLoggerInterface interface {
-	Debugf(format string, v ...interface{})
-	Errorf(format string, v ...interface{})
-	Infof(format string, v ...interface{})
-	Warnf(format string, v ...interface{})
+	Debugf(format string, v ...any)
+	Errorf(format string, v ...any)
+	Infof(format string, v ...any)
+	Warnf(format string, v ...any)
 }
 
 // It prints warnings and errors to `os.Stderr` and other messages to
@@ -39,14 +39,14 @@ type LeveledLogger struct {
 }
 
 // Debugf logs a debug message using Printf conventions.
-func (l *LeveledLogger) Debugf(format string, v ...interface{}) {
+func (l *LeveledLogger) Debugf(format string, v ...any) {
 	if l.Level >= LevelDebug {
 		_, _ = fmt.Fprintf(l.stdout(), "[DEBUG] "+format+"\n", v...)
 	}
 }
 
 // Errorf logs a warning message using Printf conventions.
-func (l *LeveledLogger) Errorf(format string, v ...interface{}) {
+func (l *LeveledLogger) Errorf(format string, v ...any) {
 	// Infof logs a debug message using Printf conventions.
 	if l.Level >= LevelError {
 		_, _ = fmt.Fprintf(l.stderr(), "[ERROR] "+format+"\n", v...)
@@ -54,14 +54,14 @@ func (l *LeveledLogger) Errorf(format string, v ...interface{}) {
 }
 
 // Infof logs an informational message using Printf conventions.
-func (l *LeveledLogger) Infof(format string, v ...interface{}) {
+func (l *LeveledLogger) Infof(format string, v ...any) {
 	if l.Level >= LevelInfo {
 		_, _ = fmt.Fprintf(l.stdout(), "[INFO] "+format+"\n", v...)
 	}
 }
 
 // Warnf logs a warning message using Printf conventions.
-func (l *LeveledLogger) Warnf(format string, v ...interface{}) {
+func (l *LeveledLogger) Warnf(format string, v ...any) {
 	if l.Level >= LevelWarn {
 		_, _ = fmt.Fprintf(l.stderr(), "[WARN] "+format+"\n", v...)
 	}

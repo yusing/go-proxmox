@@ -30,6 +30,8 @@ var (
 	ErrNotAuthorized = errors.New("not authorized to access endpoint")
 
 	ErrSessionExists = errors.New("session already exists")
+
+	ErrNoSession = errors.New("no current session to refresh")
 )
 
 func IsNotAuthorized(err error) bool {
@@ -54,8 +56,36 @@ func IsErrNoop(err error) bool {
 	return errors.Is(err, ErrNoop)
 }
 
+// ErrAPITokenWebSocketUnsupported is returned by TermWebSocket and VNCWebSocket
+// when the client is authenticated with an API token. Proxmox's vncwebsocket
+// endpoint rejects the token-suffixed user (e.g. "root@pam!tokenname") during
+// the post-upgrade auth handshake, which surfaces here as "unexpected EOF" and
+// on the server as `failed waiting for client: timed out`. Use WithCredentials
+// or WithSession for terminal/VNC access.
+var ErrAPITokenWebSocketUnsupported = errors.New("proxmox does not accept API tokens for vncwebsocket; use WithCredentials or WithSession")
+
+func IsAPITokenWebSocketUnsupported(err error) bool {
+	return errors.Is(err, ErrAPITokenWebSocketUnsupported)
+}
+
 func MakeTag(v string) string {
 	return fmt.Sprintf(TagFormat, v)
+}
+
+// EncodeSSHKeys returns the given SSH public keys encoded the way Proxmox's
+// sshkeys parameter requires. Multiple keys are joined with newlines (PVE's
+// documented separator) before encoding.
+//
+// PVE applies its own urlencoded-string validator that rejects '+' as a space
+// encoding and requires every reserved character to be percent-encoded — the
+// Python urllib.parse.quote(s, safe=”) style. Go's net/url.QueryEscape emits
+// '+' for spaces (HTML form encoding), so its output alone fails validation
+// with "invalid format - invalid urlencoded string". See issue #144.
+//
+// Use the result as the Value on a VirtualMachineOption{Name: "sshkeys", ...}
+// or assign it to VirtualMachineConfig.SSHKeys.
+func EncodeSSHKeys(keys ...string) string {
+	return strings.ReplaceAll(url.QueryEscape(strings.Join(keys, "\n")), "+", "%20")
 }
 
 type Client struct {
@@ -68,8 +98,46 @@ type Client struct {
 	session     *Session
 	log         LeveledLoggerInterface
 
+	// interceptors is the chain of WithRequestInterceptor callbacks invoked
+	// on every outgoing HTTP request after auth headers are populated and
+	// before the request is handed to httpClient.Do. They run in
+	// registration order; the first non-nil error short-circuits the
+	// request. The chain fires from Req, Upload, and UploadReader.
+	// Websocket upgrades (TermWebSocket, VNCWebSocket) are deliberately
+	// exempt — the spec does not require interceptors on the upgrade
+	// handshake and the websocket dialer does not surface a *http.Request
+	// the chain could mutate.
+	interceptors []func(*http.Request) error
+
 	sessionExpiresAt time.Time
 	sessionMux       sync.Mutex
+
+	// Option-backed fields. See options.go for the corresponding With*
+	// setters. These are collected during NewClient option evaluation and
+	// applied in finalizeOptions before NewClient returns.
+	otp          string
+	defaultRealm string
+	eagerAuth    bool
+	timeout      time.Duration
+	tlsMods      []func(*tls.Config)
+	retryPolicy  *retryPolicy
+	proxyFunc    func(*http.Request) (*url.URL, error)
+}
+
+// runInterceptors invokes the registered request interceptors in registration
+// order. The first non-nil error short-circuits the chain and is wrapped with
+// a "request interceptor:" prefix so callers can errors.Is against their own
+// sentinel errors.
+func (c *Client) runInterceptors(req *http.Request) error {
+	for _, fn := range c.interceptors {
+		if fn == nil {
+			continue
+		}
+		if err := fn(req); err != nil {
+			return fmt.Errorf("request interceptor: %w", err)
+		}
+	}
+	return nil
 }
 
 func NewClient(baseURL string, opts ...Option) *Client {
@@ -87,30 +155,67 @@ func NewClient(baseURL string, opts ...Option) *Client {
 		c.httpClient = http.DefaultClient
 	}
 
+	c.finalizeOptions()
+
 	return c
 }
 
-func (c *Client) GetBaseURL() string {
-	return c.baseURL
-}
+// finalizeOptions applies deferred option side-effects after all opt funcs
+// have run. Two reasons for deferral:
+//
+//  1. Order independence — TLS option order shouldn't matter, and
+//     WithHTTPClient should compose regardless of whether it ran before or
+//     after the TLS options.
+//  2. We must avoid mutating http.DefaultClient or http.DefaultTransport
+//     (the package-global singletons) when the caller didn't provide their
+//     own. ensureTransport promotes them via Clone() on demand.
+//
+// Order: TLS first (transport-touching), then timeout (on httpClient), then
+// eager auth (which makes a network request and needs everything else
+// settled).
+func (c *Client) finalizeOptions() {
+	if len(c.tlsMods) > 0 {
+		if tc := c.ensureTLSConfig(); tc != nil {
+			for _, mod := range c.tlsMods {
+				mod(tc)
+			}
+		} else {
+			c.log.Debugf("TLS options requested but client's RoundTripper is not an *http.Transport; options have no effect")
+		}
+	}
 
-func (c *Client) GetHTTPClient() *http.Client {
-	return c.httpClient
-}
+	if c.timeout > 0 {
+		c.ensureOwnHTTPClient()
+		c.httpClient.Timeout = c.timeout
+	}
 
-func (c *Client) GetToken() string {
-	return c.token
-}
+	if c.proxyFunc != nil {
+		if t := c.ensureTransport(); t != nil {
+			t.Proxy = c.proxyFunc
+		} else {
+			c.log.Debugf("WithProxy: client's RoundTripper is not an *http.Transport; option has no effect")
+		}
+	}
 
-func (c *Client) HasSession() bool {
-	return c.session != nil
+	c.installRetryWrapper()
+
+	if c.eagerAuth && c.credentials != nil && c.token == "" {
+		// Best-effort eager session. Errors are intentionally swallowed:
+		// the next user request will retry via the existing lazy-auth path,
+		// and option funcs can't return errors. Callers who want auth
+		// errors surfaced at startup time should call CreateSession
+		// explicitly instead of using WithEagerAuth.
+		if err := c.CreateSession(context.Background()); err != nil {
+			c.log.Debugf("WithEagerAuth: CreateSession failed: %v", err)
+		}
+	}
 }
 
 func (c *Client) Version(ctx context.Context) (*Version, error) {
 	return c.version, c.Get(ctx, "/version", &c.version)
 }
 
-func (c *Client) Req(ctx context.Context, method, path string, data []byte, v interface{}) error {
+func (c *Client) Req(ctx context.Context, method, path string, data []byte, v any) error {
 	if strings.HasPrefix(path, "/") {
 		path = c.baseURL + path
 	}
@@ -139,7 +244,11 @@ func (c *Client) Req(ctx context.Context, method, path string, data []byte, v in
 		req.Header.Add("Content-Type", "application/json")
 	}
 
-	c.setAuthHeaders(req.Header)
+	c.authHeaders(&req.Header)
+
+	if err := c.runInterceptors(req); err != nil {
+		return err
+	}
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
@@ -168,14 +277,15 @@ func (c *Client) Req(ctx context.Context, method, path string, data []byte, v in
 	}
 
 	return c.handleResponse(res, v)
+
 }
 
-func (c *Client) Get(ctx context.Context, p string, v interface{}) error {
+func (c *Client) Get(ctx context.Context, p string, v any) error {
 	return c.Req(ctx, http.MethodGet, p, nil, v)
 }
 
 // GetWithParams is a helper function to append query parameters to the URL
-func (c *Client) GetWithParams(ctx context.Context, p string, d interface{}, v interface{}) error {
+func (c *Client) GetWithParams(ctx context.Context, p string, d any, v any) error {
 	// Parse data and append to URL
 	if d != nil {
 		queryString, err := dataParserForURL(d)
@@ -188,13 +298,13 @@ func (c *Client) GetWithParams(ctx context.Context, p string, d interface{}, v i
 }
 
 // dataParserForUrl parses the data and appends it to the URL as a query string
-func dataParserForURL(d interface{}) (string, error) {
+func dataParserForURL(d any) (string, error) {
 	jsonBytes, err := json.Marshal(d)
 	if err != nil {
 		return "", err
 	}
 
-	var m map[string]interface{}
+	var m map[string]any
 	err = json.Unmarshal(jsonBytes, &m)
 	if err != nil {
 		return "", err
@@ -207,9 +317,10 @@ func dataParserForURL(d interface{}) (string, error) {
 	}
 
 	return values.Encode(), nil
+
 }
 
-func (c *Client) Post(ctx context.Context, p string, d interface{}, v interface{}) error {
+func (c *Client) Post(ctx context.Context, p string, d any, v any) error {
 	var data []byte
 	if d != nil {
 		var err error
@@ -222,7 +333,7 @@ func (c *Client) Post(ctx context.Context, p string, d interface{}, v interface{
 	return c.Req(ctx, http.MethodPost, p, data, v)
 }
 
-func (c *Client) Put(ctx context.Context, p string, d interface{}, v interface{}) error {
+func (c *Client) Put(ctx context.Context, p string, d any, v any) error {
 	var data []byte
 	if d != nil {
 		var err error
@@ -235,7 +346,21 @@ func (c *Client) Put(ctx context.Context, p string, d interface{}, v interface{}
 	return c.Req(ctx, http.MethodPut, p, data, v)
 }
 
-func (c *Client) Delete(ctx context.Context, p string, v interface{}) error {
+func (c *Client) Delete(ctx context.Context, p string, v any) error {
+	return c.Req(ctx, http.MethodDelete, p, nil, v)
+}
+
+// DeleteWithParams mirrors GetWithParams for DELETE: it serialises d into a
+// query string (Proxmox DELETE endpoints take options via query params, not
+// a request body) and unmarshals the response into v.
+func (c *Client) DeleteWithParams(ctx context.Context, p string, d any, v any) error {
+	if d != nil {
+		queryString, err := dataParserForURL(d)
+		if err != nil {
+			return err
+		}
+		p = p + "?" + queryString
+	}
 	return c.Req(ctx, http.MethodDelete, p, nil, v)
 }
 
@@ -245,7 +370,18 @@ func (c *Client) Delete(ctx context.Context, p string, v interface{}) error {
 // https://git.proxmox.com/?p=pve-manager.git;a=blob;f=PVE/HTTPServer.pm;h=8a0c308ea6d6601b886b0dec2bada3d4c3da65d0;hb=HEAD#l36
 // the task returned is the imgcopy from the tmp file to where the node actually wants the iso and you should wait for that
 // to complete before using the iso
-func (c *Client) Upload(path string, fields map[string]string, file *os.File, v interface{}) error {
+func (c *Client) Upload(path string, fields map[string]string, file *os.File, v any) error {
+	fi, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	return c.UploadReader(path, fields, filepath.Base(file.Name()), file, fi.Size(), v)
+}
+
+// UploadReader is the io.Reader-based variant of Upload. Use it when the
+// payload is already in memory (e.g., a snippet) or otherwise not backed by an
+// *os.File. size must be the exact byte length of body.
+func (c *Client) UploadReader(path string, fields map[string]string, filename string, body io.Reader, size int64, v any) error {
 	if strings.HasPrefix(path, "/") {
 		path = c.baseURL + path
 	}
@@ -259,7 +395,7 @@ func (c *Client) Upload(path string, fields map[string]string, file *os.File, v 
 		}
 	}
 
-	if _, err := w.CreateFormFile("filename", filepath.Base(file.Name())); err != nil {
+	if _, err := w.CreateFormFile("filename", filename); err != nil {
 		return err
 	}
 
@@ -268,23 +404,22 @@ func (c *Client) Upload(path string, fields map[string]string, file *os.File, v 
 		return err
 	}
 
-	body := io.MultiReader(bytes.NewReader(b.Bytes()[:header]),
-		file,
+	multi := io.MultiReader(bytes.NewReader(b.Bytes()[:header]),
+		body,
 		bytes.NewReader(b.Bytes()[header:]))
 
-	req, err := http.NewRequest(http.MethodPost, path, body)
-	if err != nil {
-		return err
-	}
-
-	fi, err := file.Stat()
+	req, err := http.NewRequest(http.MethodPost, path, multi)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	req.ContentLength = int64(b.Len()) + fi.Size()
-	c.setAuthHeaders(req.Header)
+	req.ContentLength = int64(b.Len()) + size
+	c.authHeaders(&req.Header)
+
+	if err := c.runInterceptors(req); err != nil {
+		return err
+	}
 
 	res, err := c.httpClient.Do(req)
 	if err != nil {
@@ -295,7 +430,7 @@ func (c *Client) Upload(path string, fields map[string]string, file *os.File, v 
 	return c.handleResponse(res, &v)
 }
 
-func (c *Client) setAuthHeaders(header http.Header) {
+func (c *Client) authHeaders(header *http.Header) {
 	header.Add("User-Agent", c.userAgent)
 	header.Add("Accept", "application/json")
 	if c.token != "" {
@@ -306,7 +441,7 @@ func (c *Client) setAuthHeaders(header http.Header) {
 	}
 }
 
-func (c *Client) handleResponse(res *http.Response, v interface{}) error {
+func (c *Client) handleResponse(res *http.Response, v any) error {
 	if res.StatusCode == http.StatusInternalServerError ||
 		res.StatusCode == http.StatusNotImplemented {
 		return errors.New(res.Status)
@@ -336,7 +471,7 @@ func (c *Client) handleResponse(res *http.Response, v interface{}) error {
 			return fmt.Errorf("bad request: %s - %s", res.Status, body)
 		}
 
-		return fmt.Errorf("bad request: %s - %s", res.Status, body)
+		return fmt.Errorf("bad request: %s - %s", res.Status, string(body))
 	}
 
 	// if nil passed don't bother to do any unmarshalling
@@ -356,7 +491,17 @@ func (c *Client) handleResponse(res *http.Response, v interface{}) error {
 	return json.Unmarshal(body, &v) // assume passed in type fully supports response
 }
 
+// TermWebSocket opens a terminal WebSocket connection to a previously created
+// termproxy session. It is invoked by Node.TermWebSocket, VirtualMachine.TermWebSocket,
+// and Container.TermWebSocket.
+//
+// Returns ErrAPITokenWebSocketUnsupported if the client is authenticated with
+// an API token; Proxmox does not accept tokens for /vncwebsocket — see issue
+// luthermonson/go-proxmox#221 and the linked Proxmox forum threads.
 func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byte, chan error, func() error, error) {
+	if c.token != "" {
+		return nil, nil, nil, nil, ErrAPITokenWebSocketUnsupported
+	}
 	if strings.HasPrefix(path, "/") {
 		path = strings.Replace(c.baseURL, "https://", "wss://", 1) + path
 	}
@@ -371,29 +516,35 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: 30 * time.Second,
 		TLSClientConfig:  tlsConfig,
+		// Proxmox's vncwebsocket handler requires the "binary" subprotocol —
+		// the web UI's xterm.js opens the socket with `new WebSocket(url, "binary")`.
+		// Without it the server closes the upgraded connection immediately,
+		// surfacing as "close 1006 (abnormal closure): unexpected EOF" on the
+		// first read.
+		Subprotocols: []string{"binary"},
 	}
 
 	dialerHeaders := http.Header{}
-	c.setAuthHeaders(dialerHeaders)
+	c.authHeaders(&dialerHeaders)
 
-	conn, resp, err := dialer.Dial(path, dialerHeaders)
+	conn, _, err := dialer.Dial(path, dialerHeaders)
+
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 
 	// start the session by sending user@realm:ticket
 	if err := conn.WriteMessage(websocket.BinaryMessage, []byte(term.User+":"+term.Ticket+"\n")); err != nil {
-		err = fmt.Errorf("failed to send user@realm:ticket: %w\n%+v", err, resp)
 		return nil, nil, nil, nil, err
 	}
 
 	// it sends back the same thing you just sent so catch it drop it
 	_, msg, err := conn.ReadMessage()
 	if err != nil || string(msg) != "OK" {
-		if closeErr := conn.Close(); closeErr != nil {
-			err = errors.Join(err, closeErr)
+		if err := conn.Close(); err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("error closing websocket: %s", err.Error())
 		}
-		return nil, nil, nil, nil, fmt.Errorf("unable to establish websocket: msg=%q, err=%w", msg, err)
+		return nil, nil, nil, nil, fmt.Errorf("unable to establish websocket: %s", err.Error())
 	}
 
 	type size struct {
@@ -406,9 +557,10 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 		width:  goterm.Width(),
 	}
 
-	c.log.Debugf("sending terminal size: %d x %d", tsize.height, tsize.width)
-	if err := conn.WriteMessage(websocket.BinaryMessage, fmt.Appendf(nil, "1:%d:%d:", tsize.height, tsize.width)); err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to send terminal size: %w", err)
+	// Proxmox's xterm.js resize protocol is "1:<cols>:<rows>:" — width first.
+	c.log.Debugf("sending terminal size: cols=%d rows=%d", tsize.width, tsize.height)
+	if err := conn.WriteMessage(websocket.BinaryMessage, fmt.Appendf(nil, "1:%d:%d:", tsize.width, tsize.height)); err != nil {
+		return nil, nil, nil, nil, err
 	}
 
 	send := make(chan []byte)
@@ -466,11 +618,7 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 					}
 					errs <- err
 				}
-				select {
-				case <-done:
-					return
-				case recv <- msg:
-				}
+				recv <- msg
 			}
 		}
 	}()
@@ -489,13 +637,13 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 					errs <- err
 				}
 			case resized := <-resize:
-				c.log.Debugf("resizing terminal window: %d x %d", resized.height, resized.width)
-				if err := conn.WriteMessage(websocket.BinaryMessage, fmt.Appendf(nil, "1:%d:%d:", resized.height, resized.width)); err != nil {
+				c.log.Debugf("resizing terminal window: cols=%d rows=%d", resized.width, resized.height)
+				if err := conn.WriteMessage(websocket.BinaryMessage, fmt.Appendf(nil, "1:%d:%d:", resized.width, resized.height)); err != nil {
 					errs <- err
 				}
 			case msg := <-send:
 				c.log.Debugf("sending: %s", msg)
-				send := fmt.Appendf(nil, "0:%d:%s", len(msg), msg)
+				send := append(fmt.Appendf(nil, "0:%d:", len(msg)), msg...)
 				if err := conn.WriteMessage(websocket.BinaryMessage, send); err != nil {
 					errs <- err
 				}
@@ -506,7 +654,16 @@ func (c *Client) TermWebSocket(path string, term *Term) (chan []byte, chan []byt
 	return send, recv, errs, closer, nil
 }
 
+// VNCWebSocket opens a VNC WebSocket connection to a previously created VNC
+// session. It is invoked by Node.VNCWebSocket, VirtualMachine.VNCWebSocket,
+// and Container.VNCWebSocket.
+//
+// Returns ErrAPITokenWebSocketUnsupported if the client is authenticated with
+// an API token; see TermWebSocket for the underlying Proxmox limitation.
 func (c *Client) VNCWebSocket(path string, vnc *VNC) (chan []byte, chan []byte, chan error, func() error, error) {
+	if c.token != "" {
+		return nil, nil, nil, nil, ErrAPITokenWebSocketUnsupported
+	}
 	if strings.HasPrefix(path, "/") {
 		path = strings.Replace(c.baseURL, "https://", "wss://", 1) + path
 	}
@@ -521,12 +678,19 @@ func (c *Client) VNCWebSocket(path string, vnc *VNC) (chan []byte, chan []byte, 
 		Proxy:            http.ProxyFromEnvironment,
 		HandshakeTimeout: 30 * time.Second,
 		TLSClientConfig:  tlsConfig,
+		// Proxmox's vncwebsocket handler requires the "binary" subprotocol —
+		// the web UI's xterm.js opens the socket with `new WebSocket(url, "binary")`.
+		// Without it the server closes the upgraded connection immediately,
+		// surfacing as "close 1006 (abnormal closure): unexpected EOF" on the
+		// first read.
+		Subprotocols: []string{"binary"},
 	}
 
 	dialerHeaders := http.Header{}
-	c.setAuthHeaders(dialerHeaders)
+	c.authHeaders(&dialerHeaders)
 
 	conn, _, err := dialer.Dial(path, dialerHeaders)
+
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

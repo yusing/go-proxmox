@@ -10,5 +10,8 @@ func Load() {
 	containers()
 	virtualMachines()
 	storage()
+	sdn()
+	hardware()
+	nodeLoose()
 	tasks()
 }

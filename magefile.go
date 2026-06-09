@@ -1,5 +1,4 @@
 //go:build mage
-// +build mage
 
 package main
 
@@ -11,6 +10,9 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 
+	//mage:import endpoints
+	"github.com/luthermonson/go-proxmox/mage/endpoints"
+
 	//mage:import install
 	"github.com/luthermonson/go-proxmox/mage/install"
 
@@ -18,22 +20,25 @@ import (
 	"github.com/luthermonson/go-proxmox/mage/test"
 )
 
-var envConfig = map[string]struct{}{
-	"PROXMOX_URL":              {},
-	"PROXMOX_USERNAME":         {},
-	"PROXMOX_PASSWORD":         {},
-	"PROXMOX_OTP":              {},
-	"PROXMOX_TOKENID":          {},
-	"PROXMOX_SECRET":           {},
-	"PROXMOX_NODE_NAME":        {},
-	"PROXMOX_NODE_STORAGE":     {},
-	"PROXMOX_APPLIANCE_PREFIX": {},
-	"PROXMOX_ISO_URL":          {},
-}
+var (
+	envConfig = map[string]struct{}{
+		"PROXMOX_URL":              {},
+		"PROXMOX_USERNAME":         {},
+		"PROXMOX_PASSWORD":         {},
+		"PROXMOX_OTP":              {},
+		"PROXMOX_TOKENID":          {},
+		"PROXMOX_SECRET":           {},
+		"PROXMOX_NODE_NAME":        {},
+		"PROXMOX_NODE_STORAGE":     {},
+		"PROXMOX_APPLIANCE_PREFIX": {},
+		"PROXMOX_ISO_URL":          {},
+	}
+)
 
 var Aliases = map[string]interface{}{
-	"test":    test.Unit,
-	"install": install.Dependencies,
+	"test":      test.Unit,
+	"install":   install.Dependencies,
+	"endpoints": endpoints.Sync,
 }
 
 // run everything for ci process (install deps, lint, coverage, build)

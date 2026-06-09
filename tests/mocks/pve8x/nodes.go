@@ -625,6 +625,57 @@ func nodes() {
     "data": null
 }`)
 
+	// GET /nodes/{node}/certificates - Directory index
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/certificates$").
+		Reply(200).
+		JSON(`{
+    "data": [
+        {"name": "info"},
+        {"name": "custom"},
+        {"name": "acme"}
+    ]
+}`)
+
+	// GET /nodes/{node}/certificates/acme - ACME directory index
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/certificates/acme$").
+		Reply(200).
+		JSON(`{
+    "data": [
+        {"name": "certificate"}
+    ]
+}`)
+
+	// POST /nodes/{node}/certificates/acme/certificate - Order ACME cert
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/certificates/acme/certificate$").
+		Reply(200).
+		JSON(`{
+    "data": "UPID:node1:00001234:00005678:12345678:acme-new-cert:pveproxy:root@pam:"
+}`)
+
+	// PUT /nodes/{node}/certificates/acme/certificate - Renew ACME cert
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/certificates/acme/certificate$").
+		Reply(200).
+		JSON(`{
+    "data": "UPID:node1:00001234:00005678:12345678:acme-renew-cert:pveproxy:root@pam:"
+}`)
+
+	// DELETE /nodes/{node}/certificates/acme/certificate - Revoke ACME cert
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/certificates/acme/certificate$").
+		Reply(200).
+		JSON(`{
+    "data": "UPID:node1:00001234:00005678:12345678:acme-revoke-cert:pveproxy:root@pam:"
+}`)
+
 	// POST /nodes/{node}/vzdump - Backup VMs
 	gock.New(config.C.URI).
 		Persist().
@@ -642,4 +693,180 @@ func nodes() {
 		JSON(`{
     "data": "cores: 2\nmemory: 2048\nostype: debian\nrootfs: local-lvm:vm-100-disk-0,size=8G\nnet0: name=eth0,bridge=vmbr0,ip=dhcp"
 }`)
+
+	// GET /nodes/{node}/services
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/services$").
+		Reply(200).
+		JSON(`{"data": [
+			{"service": "pveproxy", "name": "pveproxy", "desc": "PVE API Proxy", "state": "running", "active-state": "active", "unit-state": "enabled"},
+			{"service": "sshd",     "name": "sshd",     "desc": "OpenSSH server",  "state": "running", "active-state": "active", "unit-state": "enabled"}
+		]}`)
+
+	// GET /nodes/{node}/services/{service}/state
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/services/pveproxy/state$").
+		Reply(200).
+		JSON(`{"data": {"service": "pveproxy", "name": "pveproxy", "desc": "PVE API Proxy", "state": "running", "active-state": "active", "unit-state": "enabled"}}`)
+
+	// POST /nodes/{node}/services/{service}/{action}
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/services/pveproxy/(start|stop|restart|reload)$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00012345:67890123:srvstart:pveproxy:root@pam:"}`)
+
+	// GET /nodes/{node}/time - Read time + timezone
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/time$").
+		Reply(200).
+		JSON(`{"data": {"time": 1715500000, "localtime": 1715500000, "timezone": "UTC"}}`)
+
+	// PUT /nodes/{node}/time - Set timezone
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/time$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// GET /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": {"status": "active", "key": "pve8c-1234567890", "level": "c", "productname": "PVE Community 1 CPU/year", "sockets": 1, "nextduedate": "2026-12-31"}}`)
+
+	// PUT /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// POST /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// DELETE /nodes/{node}/subscription
+	gock.New(config.C.URI).
+		Persist().
+		Delete("^/nodes/node1/subscription$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// GET /nodes/{node}/replication
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication$").
+		Reply(200).
+		JSON(`{"data": [
+			{"id": "100-0", "type": "local", "source": "node1", "target": "node2", "guest": 100, "jobnum": 0, "last_sync": 1715500000, "next_sync": 1715501000, "state": "idle"}
+		]}`)
+
+	// GET /nodes/{node}/replication/{id}/status
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication/100-0/status$").
+		Reply(200).
+		JSON(`{"data": {"id": "100-0", "type": "local", "target": "node2", "guest": 100, "jobnum": 0, "last_sync": 1715500000, "state": "idle", "fail_count": 0}}`)
+
+	// GET /nodes/{node}/replication/{id}/log
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/replication/100-0/log$").
+		Reply(200).
+		JSON(`{"data": [
+			{"n": 1, "t": "2025-05-12 10:00:00 100-0: start replication job"},
+			{"n": 2, "t": "2025-05-12 10:00:05 100-0: end replication job"}
+		]}`)
+
+	// POST /nodes/{node}/replication/{id}/schedule_now
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/replication/100-0/schedule_now$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:00001234:00012345:67890124:replicate:100-0:root@pam:"}`)
+
+	// GET /nodes/{node}/apt
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt$").
+		Reply(200).
+		JSON(`{"data": [
+			{"id": "changelog"},
+			{"id": "repositories"},
+			{"id": "update"},
+			{"id": "versions"}
+		]}`)
+
+	// GET /nodes/{node}/apt/update
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/update$").
+		Reply(200).
+		JSON(`{"data": [
+			{"Package": "pve-manager", "Title": "Proxmox VE Management", "Description": "PVE manager", "Version": "8.4-1", "OldVersion": "8.3-1", "Origin": "Proxmox", "Arch": "amd64", "Section": "admin", "Priority": "optional"}
+		]}`)
+
+	// POST /nodes/{node}/apt/update
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/apt/update$").
+		Reply(200).
+		JSON(`{"data": "UPID:node1:0000ABCD:0001ABCD:67890125:aptupdate::root@pam:"}`)
+
+	// GET /nodes/{node}/apt/changelog
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/changelog").
+		Reply(200).
+		JSON(`{"data": "pve-manager (8.4-1) bookworm; urgency=medium\n"}`)
+
+	// GET /nodes/{node}/apt/repositories
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/repositories$").
+		Reply(200).
+		JSON(`{"data": {
+			"digest": "abcdef0123456789",
+			"files": [
+				{"path": "/etc/apt/sources.list", "file-type": "list", "digest": [1,2,3,4], "repositories": [
+					{"Enabled": true, "FileType": "list", "Types": ["deb"], "URIs": ["http://deb.debian.org/debian"], "Suites": ["bookworm"], "Components": ["main"]}
+				]}
+			],
+			"errors": [],
+			"infos": [],
+			"standard-repos": [
+				{"handle": "enterprise", "name": "Proxmox VE Enterprise"}
+			]
+		}}`)
+
+	// POST /nodes/{node}/apt/repositories
+	gock.New(config.C.URI).
+		Persist().
+		Post("^/nodes/node1/apt/repositories$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// PUT /nodes/{node}/apt/repositories
+	gock.New(config.C.URI).
+		Persist().
+		Put("^/nodes/node1/apt/repositories$").
+		Reply(200).
+		JSON(`{"data": null}`)
+
+	// GET /nodes/{node}/apt/versions
+	gock.New(config.C.URI).
+		Persist().
+		Get("^/nodes/node1/apt/versions$").
+		Reply(200).
+		JSON(`{"data": [
+			{"Package": "pve-manager", "Title": "Proxmox VE Management", "Description": "PVE manager", "Version": "8.4-1", "Origin": "Proxmox", "Arch": "amd64", "Section": "admin", "Priority": "optional", "CurrentState": "Installed", "ManagerVersion": "8.4-1"}
+		]}`)
 }

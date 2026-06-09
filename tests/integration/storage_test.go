@@ -1,5 +1,4 @@
 //go:build nodes
-// +build nodes
 
 package integration
 

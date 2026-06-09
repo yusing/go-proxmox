@@ -1,5 +1,4 @@
 //go:build containers
-// +build containers
 
 package integration
 

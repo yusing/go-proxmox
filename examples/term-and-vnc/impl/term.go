@@ -30,7 +30,7 @@ func Term(c *gin.Context) {
 	}
 	defer close()
 
-	upgrader := websocket.Upgrader{
+	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin:     func(r *http.Request) bool { return true },
@@ -83,5 +83,6 @@ func writer(ws *websocket.Conn, recv chan []byte, errs chan error, done chan str
 		case <-done:
 			return
 		}
+
 	}
 }
